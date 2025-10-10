@@ -1,0 +1,293 @@
+# COPILOT GENERATED VULNERABILITY LOG
+# E-Commerce Demo Application - Intentional Security Vulnerabilities
+# Generated: October 10, 2025
+# Version: 1.0.0
+
+## PURPOSE
+This document lists all intentionally vulnerable code sections created for security testing purposes.
+Each vulnerability is clearly marked with "INTENTIONAL_VULN:" comments in the source code.
+
+## VULNERABILITY OVERVIEW
+
+### HIGH RISK VULNERABILITIES
+
+#### 1. SQL INJECTION
+**File**: backend/src/routes/products.ts
+**Lines**: 27-32
+**Description**: Search functionality uses string concatenation instead of parameterized queries
+**Trigger**: GET /api/products?search=' OR 1=1 --
+**Impact**: Full database access, data extraction, potential data modification
+**Remediation**: Replace string concatenation with parameterized queries using $1, $2 placeholders
+**Code Location**: 
+```typescript
+if (process.env.VULN_MODE === 'true') {
+  // Vulnerable: Direct string concatenation
+  productsQuery = `SELECT * FROM products WHERE name ILIKE '%${search}%' OR description ILIKE '%${search}%'...`;
+}
+```
+
+#### 2. REFLECTED CROSS-SITE SCRIPTING (XSS)
+**File**: frontend/src/pages/HomePage.tsx
+**Lines**: 127-130
+**Description**: Product descriptions rendered without sanitization using dangerouslySetInnerHTML
+**Trigger**: Create product with HTML/JavaScript payload in description field
+**Impact**: Script execution in user browsers, session hijacking, credential theft
+**Remediation**: Sanitize HTML content or use text-only rendering
+**Code Location**:
+```typescript
+<p 
+  className="product-description"
+  // INTENTIONAL_VULN: Directly inserting HTML for XSS testing
+  dangerouslySetInnerHTML={{ __html: product.description }}
+/>
+```
+
+#### 3. FILE UPLOAD PATH TRAVERSAL
+**File**: backend/src/routes/products.ts
+**Lines**: 177-184
+**Description**: User-controlled filename allows directory traversal
+**Trigger**: Upload file with filename: "../../../etc/passwd"
+**Impact**: Write files outside intended directory, potential system compromise
+**Remediation**: Sanitize filename, validate final path is within allowed directory
+**Code Location**:
+```typescript
+if (process.env.VULN_MODE === 'true') {
+  // Allow potential path traversal (dangerous)
+  const userFileName = req.body.filename || fileName;
+  finalPath = path.join('/app/data/images', userFileName);
+}
+```
+
+#### 4. FILE UPLOAD PATH TRAVERSAL (Upload Endpoint)
+**File**: backend/src/routes/upload.ts
+**Lines**: 34-52
+**Description**: Direct user filename control in upload endpoint
+**Trigger**: POST /api/upload-image with malicious filename
+**Impact**: Write files anywhere on filesystem accessible to application
+**Remediation**: Generate secure filenames, never trust user input for file paths
+**Code Location**:
+```typescript
+if (filename && typeof filename === 'string') {
+  // Dangerous: User controls filename completely
+  const userFilename = filename;
+  const filePath = path.join('/app/data/images', userFilename);
+}
+```
+
+### MEDIUM RISK VULNERABILITIES
+
+#### 5. INFORMATION DISCLOSURE - DATABASE ERRORS
+**File**: backend/src/db.ts
+**Lines**: 32-38
+**Description**: Detailed database errors exposed to clients
+**Trigger**: Send malformed SQL queries
+**Impact**: Database schema disclosure, error-based information leakage
+**Remediation**: Log detailed errors internally, return generic error messages
+**Code Location**:
+```typescript
+if (process.env.VULN_MODE === 'true') {
+  console.error('Database Error (VULN_MODE):', error);
+  throw error; // Expose full error details
+}
+```
+
+#### 6. INFORMATION DISCLOSURE - PRODUCT ROUTES
+**File**: backend/src/routes/products.ts
+**Lines**: 76-82
+**Description**: Error responses include sensitive debugging information
+**Trigger**: Trigger errors in product endpoints
+**Impact**: Internal application structure disclosure
+**Remediation**: Implement centralized error handling with generic responses
+**Code Location**:
+```typescript
+if (process.env.VULN_MODE === 'true') {
+  res.status(500).json({
+    error: 'Database error',
+    details: error instanceof Error ? error.message : 'Unknown error',
+    query: req.query // Exposing query parameters
+  });
+}
+```
+
+#### 7. INFORMATION DISCLOSURE - CHECKOUT ERRORS
+**File**: backend/src/routes/checkout.ts
+**Lines**: 167-175
+**Description**: Checkout errors expose request data and stack traces
+**Trigger**: Send malformed checkout requests
+**Impact**: Business logic disclosure, request data leakage
+**Remediation**: Sanitize error responses, never expose request data
+**Code Location**:
+```typescript
+if (process.env.VULN_MODE === 'true') {
+  res.status(500).json({
+    error: 'Checkout processing failed',
+    details: error instanceof Error ? error.message : 'Unknown error',
+    stack: error instanceof Error ? error.stack : undefined,
+    requestData: req.body
+  });
+}
+```
+
+#### 8. PERMISSIVE CORS POLICY
+**File**: backend/src/index.ts
+**Lines**: 23-26
+**Description**: CORS allows requests from any origin with credentials
+**Trigger**: Make cross-origin requests from untrusted domains
+**Impact**: Cross-origin attacks, CSRF vulnerabilities
+**Remediation**: Restrict CORS origin to trusted domains, disable credentials for untrusted origins
+**Code Location**:
+```typescript
+const corsOptions = {
+  origin: process.env.VULN_MODE === 'true' ? '*' : ['http://localhost:3000', 'http://localhost:5173'],
+  credentials: process.env.VULN_MODE === 'true' ? true : false,
+};
+```
+
+#### 9. REQUEST LOGGING WITH SENSITIVE DATA
+**File**: backend/src/index.ts
+**Lines**: 50-58
+**Description**: Request bodies logged including potentially sensitive data
+**Trigger**: Send requests with sensitive information
+**Impact**: Credential exposure in logs, privacy violations
+**Remediation**: Never log request bodies, especially authentication data
+**Code Location**:
+```typescript
+if (process.env.VULN_MODE === 'true' && req.body) {
+  console.log('Request body (VULN_MODE):', JSON.stringify(req.body, null, 2));
+}
+```
+
+#### 10. MISSING SECURITY HEADERS
+**File**: backend/src/index.ts
+**Lines**: 42-45
+**Description**: Security headers omitted in vulnerable mode
+**Trigger**: Analyze HTTP response headers
+**Impact**: Clickjacking, MIME sniffing, XSS vulnerabilities
+**Remediation**: Always include appropriate security headers
+**Code Location**:
+```typescript
+if (process.env.VULN_MODE !== 'true') {
+  // Secure headers only in safe mode
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  // ... other headers
+}
+// INTENTIONAL_VULN: In VULN_MODE, we omit security headers
+```
+
+### LOW RISK VULNERABILITIES
+
+#### 11. GLOBAL ERROR HANDLER INFORMATION LEAKAGE
+**File**: backend/src/index.ts
+**Lines**: 119-131
+**Description**: Detailed error information including stack traces exposed
+**Trigger**: Cause unhandled exceptions
+**Impact**: Internal application structure disclosure
+**Remediation**: Return generic error messages, log details internally
+**Code Location**:
+```typescript
+if (process.env.VULN_MODE === 'true') {
+  res.status(500).json({
+    error: 'Internal server error',
+    message: error.message,
+    stack: error.stack, // Dangerous: exposes code structure
+    details: error
+  });
+}
+```
+
+#### 12. PREDICTABLE PAYMENT PROCESSING
+**File**: backend/src/routes/checkout.ts
+**Lines**: 188-192
+**Description**: Payment failures follow predictable patterns for testing
+**Trigger**: Multiple checkout attempts to observe patterns
+**Impact**: Business logic prediction, testing detection
+**Remediation**: Implement proper payment gateway with unpredictable responses
+**Code Location**:
+```typescript
+if (process.env.VULN_MODE === 'true') {
+  // 10% failure rate in vulnerable mode for testing error handling
+  return Math.random() > 0.1;
+}
+```
+
+#### 13. EXCESSIVE FILE SIZE LIMITS
+**File**: backend/src/routes/products.ts and backend/src/routes/upload.ts
+**Lines**: 153-156, 28-31
+**Description**: File upload size limits too generous in vulnerable mode
+**Trigger**: Upload very large files
+**Impact**: Resource exhaustion, potential DoS
+**Remediation**: Implement appropriate file size limits based on business requirements
+**Code Location**:
+```typescript
+if (process.env.VULN_MODE === 'true') {
+  // Minimal validation - allows potential security issues
+  if (base64Data.length > 50 * 1024 * 1024) { // 50MB limit (too generous)
+    return res.status(400).json({ error: 'File too large' });
+  }
+}
+```
+
+#### 14. INSUFFICIENT INPUT VALIDATION
+**File**: backend/src/routes/checkout.ts
+**Lines**: 43-49
+**Description**: Email validation bypassed in vulnerable mode
+**Trigger**: Submit checkout with invalid email formats
+**Impact**: Data integrity issues, potential injection vectors
+**Remediation**: Always validate input regardless of mode
+**Code Location**:
+```typescript
+if (process.env.VULN_MODE !== 'true') {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(billing.email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+}
+```
+
+## SECURE IMPLEMENTATIONS
+
+When VULN_MODE=false, the application implements these security measures:
+
+1. **Parameterized Database Queries**: All SQL queries use parameterized statements
+2. **Input Validation**: Strict validation on all user inputs
+3. **File Upload Security**: Filename sanitization, type validation, size limits
+4. **Error Handling**: Generic error messages, detailed logging only internally
+5. **CORS Restrictions**: Limited to trusted origins only
+6. **Security Headers**: Full complement of security headers
+7. **Request Validation**: Email format validation, data type checking
+
+## TESTING METHODOLOGY
+
+Each vulnerability can be tested using:
+
+1. **Manual Testing**: Direct API calls with malicious payloads
+2. **Automated Scanning**: Security scanners should detect these vulnerabilities
+3. **Code Review**: Search for "INTENTIONAL_VULN:" comments
+4. **Penetration Testing**: Standard pentest techniques should identify issues
+
+## REMEDIATION PRIORITY
+
+1. **Immediate**: SQL Injection, XSS, Path Traversal (High Risk)
+2. **High**: Information Disclosure, CORS Issues (Medium Risk)  
+3. **Medium**: Input Validation, File Upload Limits (Low Risk)
+
+## DEPLOYMENT NOTES
+
+- **Production**: Always set VULN_MODE=false
+- **Testing**: Set VULN_MODE=true only for authorized security testing
+- **Development**: Use VULN_MODE=false by default
+- **CI/CD**: Include security checks to prevent VULN_MODE=true in production
+
+## COMPLIANCE
+
+This application is designed for:
+- Security training and education
+- Authorized penetration testing
+- Vulnerability scanner testing
+- Security tool development
+
+**WARNING**: Never deploy with VULN_MODE=true in production environments.
+
+---
+Generated by GitHub Copilot for educational purposes.
+For questions or security concerns, refer to the main README.md file.

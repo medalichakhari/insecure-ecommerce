@@ -1,0 +1,103 @@
+version: "3.8"
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: ecommerce-db
+    environment:
+      POSTGRES_DB: ecommerce
+      POSTGRES_USER: ecommerce_user
+      POSTGRES_PASSWORD: ecommerce_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce_user -d ecommerce"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ecommerce-backend
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://ecommerce_user:ecommerce_password@db:5432/ecommerce
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      VULN_MODE: "false" # Set to "true" to enable intentional vulnerabilities
+    volumes:
+      - ./data/images:/app/data/images # Mount host directory for persistent image storage
+    ports:
+      - "4000:4000"
+    networks:
+      - ecommerce-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ecommerce-frontend
+    ports:
+      - "3000:3000"
+    networks:
+      - ecommerce-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+# Networks
+networks:
+  ecommerce-network:
+    driver: bridge
+    name: ecommerce-network
+
+# Volumes
+volumes:
+  postgres_data:
+    driver: local
+    name: ecommerce-postgres-data
+
+# Additional compose configuration for development
+x-development-overrides: &development
+  # Uncomment the section below for development mode
+  # backend:
+  #   environment:
+  #     NODE_ENV: development
+  #     VULN_MODE: "true"  # Enable vulnerabilities for testing
+  #   volumes:
+  #     - ./backend/src:/app/src:ro  # Mount source for hot reload
+  #   command: npm run dev
+  #
+  # frontend:
+  #   volumes:
+  #     - ./frontend/src:/app/src:ro  # Mount source for hot reload
+  #   command: npm run dev
+
