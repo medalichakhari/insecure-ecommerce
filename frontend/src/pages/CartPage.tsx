@@ -51,7 +51,11 @@ const CartPage = () => {
     <div className="container">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold text-primary">Shopping Cart</h1>
-        <button onClick={clearCart} className="btn btn-outline btn-small">
+        <button
+          onClick={clearCart}
+          className="btn btn-outline btn-small"
+          disabled={cartItems.length === 0}
+        >
           Clear Cart
         </button>
       </div>
@@ -67,12 +71,17 @@ const CartPage = () => {
                     {/* Product Image */}
                     <div className="flex-shrink-0">
                       <img
-                        src={item.image_url || "/images/placeholder.jpg"}
+                        src={
+                          item.image_url ||
+                          "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+CiAgPHJlY3QgeD0iNTAlIiB5PSI1MCUiIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgcng9IjgiIGZpbGw9IiNkMWQ1ZGIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC00MCwgLTQwKSIvPgogIDxwYXRoIGQ9Ik01MCA2MCBMNzAgODAgTDkwIDYwIiBzdHJva2U9IiM2YjcyODAiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgPGNpcmNsZSBjeD0iNjUiIGN5PSI3MCIgcj0iMyIgZmlsbD0iIzZiNzI4MCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iMjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiM2YjcyODAiPlByb2R1Y3QgSW1hZ2U8L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSIyNDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzljYTNhZiI+SW1hZ2Ugbm90IGF2YWlsYWJsZTwvdGV4dD4KPC9zdmc+"
+                        }
                         alt={item.name}
-                        onError={(e) => {
-                          e.currentTarget.src = "/images/placeholder.jpg";
+                        onError={(e: any) => {
+                          e.currentTarget.src =
+                            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+CiAgPHJlY3QgeD0iNTAlIiB5PSI1MCUiIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgcng9IjgiIGZpbGw9IiNkMWQ1ZGIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC00MCwgLTQwKSIvPgogIDxwYXRoIGQ9Ik01MCA2MCBMN5AgODAgTDkwIDYwIiBzdHJva2U9IiM2YjcyODAiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgPGNpcmNsZSBjeD0iNjUiIGN5PSI3MCIgcj0iMyIgZmlsbD0iIzZiNzI4MCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iMjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiM2YjcyODAiPlByb2R1Y3QgSW1hZ2U8L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSIyNDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzljYTNhZiI+SW1hZ2Ugbm90IGF2YWlsYWJsZTwvdGV4dD4KPC9zdmc+";
                         }}
                         className="w-24 h-24 object-cover rounded border"
+                        style={{ width: "6rem", height: "6rem" }}
                       />
                     </div>
 
@@ -88,13 +97,22 @@ const CartPage = () => {
                       {/* Quantity Controls */}
                       <div className="flex items-center gap-3 mb-3">
                         <span className="text-sm font-medium">Quantity:</span>
-                        <div className="flex items-center border rounded">
+                        <div
+                          className="flex items-center border rounded"
+                          style={{ border: "1px solid var(--border-color)" }}
+                        >
                           <button
                             onClick={() =>
                               updateQuantity(item.productId, item.quantity - 1)
                             }
                             className="px-3 py-1 hover:bg-gray-100 transition-colors"
                             disabled={item.quantity <= 1}
+                            style={{
+                              backgroundColor:
+                                item.quantity <= 1 ? "#f5f5f5" : "transparent",
+                              cursor:
+                                item.quantity <= 1 ? "not-allowed" : "pointer",
+                            }}
                           >
                             −
                           </button>
@@ -105,10 +123,11 @@ const CartPage = () => {
                             onChange={(e) =>
                               updateQuantity(
                                 item.productId,
-                                parseInt(e.target.value) || 1
+                                Math.max(1, parseInt(e.target.value) || 1)
                               )
                             }
                             className="w-16 px-2 py-1 text-center border-0 focus:outline-none"
+                            style={{ width: "4rem" }}
                           />
                           <button
                             onClick={() =>
@@ -143,7 +162,7 @@ const CartPage = () => {
 
         {/* Cart Summary */}
         <div className="lg:w-80">
-          <div className="card">
+          <div className="card sticky top-4">
             <div className="card-header">
               <h2 className="card-title">Order Summary</h2>
             </div>
