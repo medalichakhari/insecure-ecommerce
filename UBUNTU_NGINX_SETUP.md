@@ -1,6 +1,8 @@
 # Ubuntu Nginx Setup Guide for E-commerce Application
 
-This guide will help you configure Nginx directly on your Ubuntu machine to serve the e-commerce application with proper SSL, security headers, and performance optimizations.
+This guide will help you configure Nginx directly on your Ubuntu machine to serve the e-commerce application with proper SSL using **mkcert**, security headers, and performance optimizations.
+
+> **Note**: This guide uses mkcert for SSL certificates, which creates locally-trusted development certificates that work seamlessly with browsers without security warnings. Perfect for development and local testing environments.
 
 ## Table of Contents
 
@@ -57,24 +59,40 @@ sudo ufw allow ssh
 sudo ufw --force enable
 ```
 
-## SSL Certificate Setup
+## SSL Certificate Setup with mkcert
 
-### Option 1: Let's Encrypt (Recommended for Production)
+### What is mkcert?
 
-#### Install Certbot
+mkcert is a simple tool for making locally-trusted development certificates. It requires no configuration and creates certificates that are automatically trusted by your system browsers and tools.
 
-```bash
-sudo apt install certbot python3-certbot-nginx -y
-```
+### Install mkcert
 
-#### Obtain SSL Certificate
+#### Method 1: Using Package Manager (Recommended)
 
 ```bash
-# Replace shop.local with your actual domain
-sudo certbot --nginx -d shop.local -d www.shop.local
+# Install certutil (required dependency)
+sudo apt install libnss3-tools -y
+
+# Download and install mkcert
+curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+chmod +x mkcert-v*-linux-amd64
+sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
 ```
 
-### Option 2: Self-Signed Certificate (Development Only)
+#### Method 2: Using Go (if you have Go installed)
+
+```bash
+go install filippo.io/mkcert@latest
+```
+
+### Setup Local Certificate Authority
+
+```bash
+# Install the local CA in the system trust store
+mkcert -install
+```
+
+### Generate SSL Certificate
 
 #### Create SSL Directory
 
@@ -83,21 +101,35 @@ sudo mkdir -p /etc/ssl/private
 sudo chmod 700 /etc/ssl/private
 ```
 
-#### Generate Self-Signed Certificate
+#### Generate Certificate for Local Development
 
 ```bash
-sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout /etc/ssl/private/shop.local.key \
-    -out /etc/ssl/private/shop.local.crt \
-    -subj "/C=US/ST=State/L=City/O=Organization/OU=OrgUnit/CN=shop.local"
-```
+# Generate certificate for localhost and shop.local
+mkcert -key-file /tmp/shop.local.key -cert-file /tmp/shop.local.crt localhost shop.local "*.shop.local" 127.0.0.1 ::1
 
-#### Set Proper Permissions
+# Move certificates to nginx directory
+sudo mv /tmp/shop.local.key /etc/ssl/private/
+sudo mv /tmp/shop.local.crt /etc/ssl/private/
 
-```bash
+# Set proper permissions
 sudo chmod 600 /etc/ssl/private/shop.local.key
 sudo chmod 644 /etc/ssl/private/shop.local.crt
 ```
+
+#### Add Domain to Hosts File (Optional)
+
+```bash
+# Add shop.local to your hosts file for local testing
+echo "127.0.0.1 shop.local" | sudo tee -a /etc/hosts
+```
+
+### Benefits of mkcert
+
+- ✅ **Zero-configuration**: Works out of the box
+- ✅ **Trusted certificates**: No browser warnings
+- ✅ **Multi-domain support**: Single certificate for multiple domains
+- ✅ **Easy renewal**: Simple command to regenerate certificates
+- ✅ **Cross-platform**: Works on Linux, macOS, and Windows
 
 ## Nginx Configuration
 
@@ -134,7 +166,7 @@ server {
     root /var/www/ecommerce;
     index index.html index.htm;
 
-    # SSL Configuration
+    # SSL Configuration (using mkcert certificates)
     ssl_certificate /etc/ssl/private/shop.local.crt;
     ssl_certificate_key /etc/ssl/private/shop.local.key;
 
@@ -146,7 +178,8 @@ server {
     ssl_session_timeout 1d;
     ssl_session_tickets off;
 
-    # OCSP stapling (comment out for self-signed certificates)
+    # OCSP stapling (disabled for mkcert certificates)
+    # Note: mkcert certificates don't support OCSP stapling
     # ssl_stapling on;
     # ssl_stapling_verify on;
 
@@ -471,17 +504,37 @@ sudo tail -f /var/log/nginx/ecommerce_access.log
 sudo tail -f /var/log/nginx/ecommerce_error.log
 ```
 
-### Check SSL Certificate Expiry
+### Check SSL Certificate Information
 
 ```bash
-sudo certbot certificates
+# Check certificate details
+openssl x509 -in /etc/ssl/private/shop.local.crt -text -noout
+
+# Check certificate expiry
+openssl x509 -in /etc/ssl/private/shop.local.crt -noout -dates
 ```
 
-### Renew SSL Certificates
+### Regenerate mkcert Certificates
 
 ```bash
-sudo certbot renew --dry-run
-sudo certbot renew
+# If you need to regenerate certificates (e.g., adding new domains)
+mkcert -key-file /tmp/shop.local.key -cert-file /tmp/shop.local.crt localhost shop.local "*.shop.local" 127.0.0.1 ::1
+
+# Move new certificates
+sudo mv /tmp/shop.local.key /etc/ssl/private/
+sudo mv /tmp/shop.local.crt /etc/ssl/private/
+sudo chmod 600 /etc/ssl/private/shop.local.key
+sudo chmod 644 /etc/ssl/private/shop.local.crt
+
+# Reload nginx to use new certificates
+sudo systemctl reload nginx
+```
+
+### Uninstall mkcert CA (if needed)
+
+```bash
+# Remove mkcert CA from system trust store
+mkcert -uninstall
 ```
 
 ## Troubleshooting
