@@ -17,23 +17,28 @@ COPY frontend/ ./
 # Build the application
 RUN npm run build
 
-# Production stage with nginx
-FROM nginx:alpine AS production
+# Production stage with Node.js serve
+FROM node:18-bullseye-slim AS production
 
-# Install security updates
-RUN apk update && apk upgrade && apk add --no-cache curl
+# Install serve and security updates
+RUN apt-get update && apt-get upgrade -y && \
+    npm install -g serve && \
+    apt-get install -y curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy built assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/dist /app/dist
 
-# Create nginx user and set permissions
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    chown -R nginx:nginx /etc/nginx/conf.d
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser && \
+    chown -R appuser:appuser /app
 
-# Keep running as root to avoid PID file issues
-# USER nginx
+# Switch to non-root user
+USER appuser
+
+# Set working directory
+WORKDIR /app
 
 # Expose port
 EXPOSE 3000
@@ -42,5 +47,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000 || exit 1
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start serve to serve the built React app
+CMD ["serve", "-s", "dist", "-l", "3000"]
