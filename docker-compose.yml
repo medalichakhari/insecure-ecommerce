@@ -56,8 +56,8 @@ services:
   # Frontend React App
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./frontend/Dockerfile
     container_name: ecommerce-frontend
     ports:
       - "3000:3000"
@@ -100,4 +100,5 @@ x-development-overrides: &development
   #   volumes:
   #     - ./frontend/src:/app/src:ro  # Mount source for hot reload
   #   command: npm run dev
+
 
